@@ -1,0 +1,115 @@
+좋은 질문입니다! 코드를 다시 살펴보면 문제가 보입니다.
+
+---
+
+## 원인 분석
+
+### 원래 데이터 구조
+```
+- Training corpus: 29,487 docs
+- LLM API로 라벨링: 800개 (val 200 + seed 600)
+- Unlabeled: 29,487 - 800 = 28,687개
+```
+
+### 문제가 되는 부분
+
+`combined_train_labels`를 만들 때:
+
+```python
+combined_train_labels = {**seed_train_labels, **silver_labels}
+```
+
+여기서:
+- `seed_train_labels`: key가 **문서의 원본 index** (예: 3421, 15234, ...)
+- `silver_labels`: key가 **unlabeled_indices의 원본 index** (예: 0, 1, 2, ...)
+
+그런데 이후 `train_texts`와 `train_labels_remapped`를 만들 때:
+
+```python
+for key, labels in combined_train_labels.items():
+    if isinstance(key, int):
+        if key in id_to_doc:  # doc['id']로 찾기
+            doc = id_to_doc[key]
+            train_texts.append(doc['text'])
+            train_labels_remapped[len(train_texts) - 1] = labels
+        elif 0 <= key < len(all_docs):  # index로 찾기
+            doc = all_docs[key]
+            train_texts.append(doc['text'])
+            train_labels_remapped[len(train_texts) - 1] = labels
+```
+
+**문제**: 같은 문서가 두 번 추가될 수 있음!
+- `key=5`가 `id_to_doc[5]`에도 있고 `all_docs[5]`로도 접근 가능
+- 또는 `seed_train_labels`의 key와 `silver_labels`의 key가 다른 의미인데 같은 값일 때
+
+---
+
+## 검증 방법
+
+```python
+# 디버깅 코드 추가
+print(f"seed_train_labels keys 샘플: {list(seed_train_labels.keys())[:10]}")
+print(f"silver_labels keys 샘플: {list(silver_labels.keys())[:10]}")
+print(f"combined_train_labels 개수: {len(combined_train_labels)}")
+
+# id_to_doc 확인
+print(f"id_to_doc keys 샘플: {list(id_to_doc.keys())[:10]}")
+print(f"all_docs[0]['id']: {all_docs[0]['id']}")
+```
+
+---
+
+## 예상 원인
+
+`all_docs`의 구조가:
+```python
+{'id': 0, 'text': '...'}, {'id': 1, 'text': '...'}, ...
+```
+
+이면 `id`와 `index`가 동일해서 **같은 문서가 두 조건 모두 만족**:
+1. `key in id_to_doc` → True
+2. `0 <= key < len(all_docs)` → True
+
+결과적으로 같은 문서가 두 번 추가됨!
+
+---
+
+## 수정 코드
+
+```python
+# --- Prepare Data (Fixed) ---
+
+id_to_doc = {d['id']: d for d in all_docs}
+index_to_doc = {i: d for i, d in enumerate(all_docs)}
+
+train_texts = []
+train_labels_remapped = {}
+seen_doc_ids = set()  # 중복 방지
+
+for key, labels in combined_train_labels.items():
+    if isinstance(key, int):
+        doc = None
+        doc_id = None
+        
+        # seed_train_labels는 index 기반, silver_labels도 index 기반
+        if 0 <= key < len(all_docs):
+            doc = all_docs[key]
+            doc_id = doc['id']
+        
+        if doc is not None and doc_id not in seen_doc_ids:
+            seen_doc_ids.add(doc_id)
+            train_texts.append(doc['text'])
+            train_labels_remapped[len(train_texts) - 1] = labels
+
+print(f"Prepared {len(train_texts)} training samples (deduplicated)")
+```
+
+---
+
+## 요약
+
+| 항목 | 예상 값 | 실제 값 | 원인 |
+|------|---------|---------|------|
+| Training labels | ~29,287 | 55,633 | 중복 추가 (약 2배) |
+
+`id_to_doc[key]`와 `all_docs[key]` 두 조건이 모두 True가 되어 같은 문서가 두 번 들어간 것으로 보입니다. 위의 수정 코드로 중복을 제거하세요.
