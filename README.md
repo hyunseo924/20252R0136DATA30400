@@ -6,3 +6,8 @@ project_release/Amazon_products/new_llm_generated_data.pkl
 
 project_final.py 
 단일 실행 가능한 코드
+
+
+#2025.12.21 오전 12:55 추가 코멘트 
+2025.12.21 오전 12:01 (late submission) 새로 업로드된 final_project.py 무시하시고
+2025.12.20 오후 11:57 (before deadline)에 upload된 final_project.py 로 실행하셔도 됩니다. *commits에서 확인 가능
