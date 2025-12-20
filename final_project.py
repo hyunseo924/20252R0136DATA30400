@@ -33,18 +33,25 @@ def set_seed(seed=42):
 
 set_seed(42)
 
-# 경로 설정
-ROOT = r"./project_release/Amazon_products"
-TRAIN_PATH = os.path.join(ROOT, "train/train_corpus.txt")
-TEST_PATH = os.path.join(ROOT, "test/test_corpus.txt")
+# 경로 설정 (스크립트 위치 기준)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.join(SCRIPT_DIR, "Amazon_products")
+TRAIN_PATH = os.path.join(ROOT, "train", "train_corpus.txt")
+TEST_PATH = os.path.join(ROOT, "test", "test_corpus.txt")
 HIERARCHY_PATH = os.path.join(ROOT, "class_hierarchy.txt")
 KEYWORDS_PATH = os.path.join(ROOT, "class_related_keywords.txt")
-MODEL_SAVE_DIR = r'./project_release/model'
+MODEL_SAVE_DIR = os.path.join(SCRIPT_DIR, "model")
 LLM_DATA_PATH = os.path.join(ROOT, "new_llm_generated_data.pkl")
-SUBMISSION_DIR = r"./project_release/submission"
+SUBMISSION_DIR = os.path.join(SCRIPT_DIR, "submission")
+
+# 필요한 디렉토리 생성
+os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
+os.makedirs(SUBMISSION_DIR, exist_ok=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
+print(f"Script directory: {SCRIPT_DIR}")
+print(f"Data root: {ROOT}")
 
 # =============================================================================
 # 데이터 로딩
@@ -52,6 +59,35 @@ print(f"Using device: {device}")
 
 def load_data_and_graph():
     """학습/테스트 문서, 클래스 정보, 계층 구조 그래프 로드"""
+    # 필수 파일 존재 확인
+    required_files = {
+        'Train corpus': TRAIN_PATH,
+        'Test corpus': TEST_PATH,
+        'Class hierarchy': HIERARCHY_PATH,
+        'Class keywords': KEYWORDS_PATH,
+        'LLM data': LLM_DATA_PATH
+    }
+    
+    missing_files = []
+    for name, path in required_files.items():
+        if not os.path.exists(path):
+            missing_files.append(f"  - {name}: {path}")
+    
+    if missing_files:
+        print("\n[ERROR] Required files not found:")
+        print("\n".join(missing_files))
+        print(f"\nPlease ensure the following directory structure:")
+        print(f"{SCRIPT_DIR}/")
+        print(f"  └── Amazon_products/")
+        print(f"      ├── train/")
+        print(f"      │   └── train_corpus.txt")
+        print(f"      ├── test/")
+        print(f"      │   └── test_corpus.txt")
+        print(f"      ├── class_hierarchy.txt")
+        print(f"      ├── class_related_keywords.txt")
+        print(f"      └── new_llm_generated_data.pkl")
+        raise FileNotFoundError("Required data files are missing")
+    
     # 학습 문서 로드
     documents = []
     with open(TRAIN_PATH, 'r', encoding='utf-8') as f:
@@ -62,12 +98,11 @@ def load_data_and_graph():
     
     # 테스트 문서 로드
     test_documents = []
-    if os.path.exists(TEST_PATH):
-        with open(TEST_PATH, 'r', encoding='utf-8') as f:
-            for line in f:
-                parts = line.strip().split('\t', 1)
-                if len(parts) == 2:
-                    test_documents.append({'id': int(parts[0]), 'text': parts[1]})
+    with open(TEST_PATH, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split('\t', 1)
+            if len(parts) == 2:
+                test_documents.append({'id': int(parts[0]), 'text': parts[1]})
     
     # 클래스 정보 로드
     class_info = {}
