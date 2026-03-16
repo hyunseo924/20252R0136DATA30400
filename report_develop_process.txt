@@ -108,38 +108,38 @@ brandnew_classification
     -> Best model saved! F1=0.2920 , """Test: 0.27"""
 
 
-Phase 3: Loss Function 실험 (중간 리스크)
+Phase 3: Loss Function 실험
 Step 3.1: Asymmetric Loss 단독 테스트
 - Focal Loss → Asymmetric Loss 교체
 Step 3.2: Combined Loss 테스트
 - 0.6*Focal + 0.4*Asymmetric
 - 비율 조정: 0.5/0.5, 0.7/0.3 등
 
-Phase 4: Silver Label 개선 (높은 리스크)
-Step 4.1: TF-IDF 파라미터 튜닝 (리스크: 낮음)
+Phase 4: Silver Label 개선 
+Step 4.1: TF-IDF 파라미터 튜닝
 - max_features: 5000 → 8000
 - ngram_range: (1,2) → (1,3)
 - sublinear_tf=True 추가
-Step 4.2: Keyword Matching 추가 (리스크: 중간)
+Step 4.2: Keyword Matching 추가 
 - TF-IDF + Keyword score 결합
 - 가중치: 0.7*TF-IDF + 0.3*Keyword
-Step 4.3: Label Propagation 추가 (리스크: 높음)
+Step 4.3: Label Propagation 추가 
 - Seed label에서 유사 문서로 전파
 - 이전 단계들이 성능 향상 시에만 적용
-Step 4.4: Hierarchy-aware Scoring (리스크: 중간)
+Step 4.4: Hierarchy-aware Scoring
 - Depth-based weighting
 - Leaf node 우선순위
 
-Phase 5: Self-Training 전략 (높은 리스크)
-Step 5.1: Curriculum Threshold (리스크: 중간)
+Phase 5: Self-Training 전략 
+Step 5.1: Curriculum Threshold 
 - 고정 threshold → 점진적 감소 (0.6→0.45)
-Step 5.2: Entropy-based Filtering (리스크: 높음)
+Step 5.2: Entropy-based Filtering
 - Low entropy samples만 pseudo-label 업데이트
-Step 5.3: Training Rounds 증가 (리스크: 중간)
+Step 5.3: Training Rounds 증가 
 - 3 rounds → 4 rounds
 - Overfitting 주의
 
-Phase 6: Inference 최적화 (낮은 리스크)
+Phase 6: Inference 최적화
 Step 6.1: Dynamic Threshold Search
 - Validation set에서 최적 threshold 탐색
 - Range: 0.2 ~ 0.6, step 0.02
