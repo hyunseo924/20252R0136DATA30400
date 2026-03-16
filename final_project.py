@@ -19,9 +19,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import csv
 
-# =============================================================================
-# 설정 및 시드 고정
-# =============================================================================
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -53,9 +50,6 @@ print(f"Using device: {device}")
 print(f"Script directory: {SCRIPT_DIR}")
 print(f"Data root: {ROOT}")
 
-# =============================================================================
-# 데이터 로딩
-# =============================================================================
 
 def load_data_and_graph():
     """학습/테스트 문서, 클래스 정보, 계층 구조 그래프 로드"""
@@ -139,9 +133,6 @@ unlabeled_train_indices = result['unlabeled_train_indices']
 unlabeled_test_indices = result['unlabeled_test_indices']
 print("LLM generated data loaded")
 
-# =============================================================================
-# 계층 구조 제약 함수
-# =============================================================================
 
 def get_ancestors(G, node):
     """주어진 노드의 모든 조상 노드 반환"""
@@ -163,9 +154,6 @@ def enforce_hierarchy_constraint(labels, G):
         constrained_labels.update(ancestors)
     return list(constrained_labels)
 
-# =============================================================================
-# Silver Label 생성 (TF-IDF + Label Propagation)
-# =============================================================================
 
 def generate_improved_silver_labels(train_docs, test_docs, unlabeled_indices, class_info,
                                     train_seed_labels, test_seed_labels, G, num_classes):
@@ -267,9 +255,6 @@ silver_labels = generate_improved_silver_labels(
 combined_train_labels = {**train_seed_labels, **silver_labels}
 print(f"Total training labels: {len(combined_train_labels)}")
 
-# =============================================================================
-# 인접 행렬 구축 (GCN용)
-# =============================================================================
 
 def build_adjacency_matrix(G, num_classes):
     """계층 구조 그래프로부터 정규화된 인접 행렬 생성"""
@@ -289,9 +274,7 @@ def build_adjacency_matrix(G, num_classes):
 A_hat = build_adjacency_matrix(G, num_classes).to(device)
 print(f"Adjacency matrix shape: {A_hat.shape}")
 
-# =============================================================================
 # 데이터 준비 (학습/검증 분할)
-# =============================================================================
 
 id_to_doc = {d['id']: d for d in all_docs}
 index_to_doc = {i: d for i, d in enumerate(all_docs)}
@@ -337,9 +320,7 @@ else:
     
     print(f"Split: {len(train_texts)} train, {len(val_texts)} val")
 
-# =============================================================================
 # 모델 정의
-# =============================================================================
 
 class HierarchicalGCNClassifier(nn.Module):
     """BERT + GCN 기반 계층적 분류 모델"""
@@ -414,10 +395,7 @@ class HierarchicalGCNClassifier(nn.Module):
         
         return logits
 
-# =============================================================================
 # Loss 함수
-# =============================================================================
-
 class WeightedBCELoss(nn.Module):
     """클래스 빈도 기반 가중치 BCE Loss"""
     def __init__(self, class_weights=None, pos_weight_factor=1.5):
@@ -489,11 +467,7 @@ def create_sample_weights_v2(train_size, unlabeled_indices, round_num):
     
     print(f"  Sample Weights: Golden={golden_weight:.1f}, Silver={silver_weight:.2f}")
     return sample_weights
-
-# =============================================================================
-# Dataset
-# =============================================================================
-
+    
 class WeightedTextDataset(Dataset):
     """샘플별 가중치를 포함한 텍스트 데이터셋"""
     def __init__(self, texts, labels_dict, weights_dict, tokenizer, num_classes, max_length=128):
@@ -529,9 +503,6 @@ class WeightedTextDataset(Dataset):
         item['weight'] = weight
         return item
 
-# =============================================================================
-# 학습 및 평가 함수
-# =============================================================================
 
 def train_epoch(model, loader, optimizer, criterion, A_hat, device):
     """1 에폭 학습"""
@@ -616,10 +587,7 @@ class EarlyStoppingV2:
         
         return self.early_stop
 
-# =============================================================================
 # Pseudo-label 업데이트
-# =============================================================================
-
 def update_labels_ultra_conservative(model, loader, train_labels, unlabeled_indices,
                                      G, num_classes, device, A_hat, round_num):
     """매우 보수적인 Pseudo-label 업데이트 (Golden label 보호)"""
@@ -699,10 +667,7 @@ def update_labels_ultra_conservative(model, loader, train_labels, unlabeled_indi
     
     return new_labels
 
-# =============================================================================
-# Self-Training 메인 함수
-# =============================================================================
-
+# Self-Training 
 def train_simplified_selftraining(
     model, train_texts, train_labels, unlabeled_indices,
     val_texts, val_labels, tokenizer, num_classes, G, A_hat, device,
@@ -815,10 +780,7 @@ def train_simplified_selftraining(
     
     return best_micro
 
-# =============================================================================
-# 테스트 예측 및 제출 파일 생성
-# =============================================================================
-
+# infer
 class TestDataset(Dataset):
     """테스트 데이터셋"""
     def __init__(self, texts, tokenizer, max_length=128):
@@ -906,9 +868,6 @@ def save_submission(all_predictions, submission_path):
     print(f" - Total predictions: {len(all_predictions)}")
     print(f" - Avg labels per prediction: {np.mean([len(p) for p in all_predictions]):.2f}")
 
-# =============================================================================
-# 메인 실행
-# =============================================================================
 
 if __name__ == "__main__":
     # 토크나이저 및 모델 초기화
